@@ -130,10 +130,22 @@ const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 const MAX_REQUESTS_PER_MINUTE = 6;
 
+// Server-side API memory cache to protect from duplicate queries
+const apiCache = new Map();
+const API_CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache window
+
 export async function POST(request) {
   try {
     const body = await request.json();
     const { name, vibe, favoriteBooks = [] } = body;
+
+    // Check server-side memory cache first
+    const apiCacheKey = JSON.stringify({ name, vibe, favoriteBooks });
+    const cachedEntry = apiCache.get(apiCacheKey);
+    if (cachedEntry && Date.now() - cachedEntry.timestamp < API_CACHE_TTL) {
+      console.log('Serving recommendation from server-side memory cache.');
+      return Response.json(cachedEntry.data);
+    }
 
     // 0. Simple IP rate-limiting to protect API usage
     const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
@@ -363,7 +375,7 @@ Provide your response in JSON format. Use the following keys:
     if (isSupabaseConfigured) {
       try {
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
-        const { error: logError } = await supabase
+        const { data: insertedRows, error: logError } = await supabase
           .from('recommendation_logs')
           .insert({
             reader_name: name || 'Reader',
@@ -373,17 +385,22 @@ Provide your response in JSON format. Use the following keys:
             recommended_author: recommendationData.author,
             recommended_reason: recommendationData.recommendedReason,
             search_mode: `${searchMode} (${recommendationData.matchPercentage}% Match)`,
-          });
+          })
+          .select('id');
 
         if (logError) {
           console.warn('Warning: Failed to insert recommendation log to Supabase:', logError.message);
-        } else {
-          console.log('Successfully logged recommendation to Supabase.');
+        } else if (insertedRows && insertedRows.length > 0) {
+          recommendationData.logId = insertedRows[0].id;
+          console.log('Successfully logged recommendation to Supabase with ID:', insertedRows[0].id);
         }
       } catch (logErr) {
         console.warn('Warning: Exception logging recommendation to Supabase:', logErr.message);
       }
     }
+
+    // Save response to server-side memory cache
+    apiCache.set(apiCacheKey, { timestamp: Date.now(), data: recommendationData });
 
     return Response.json(recommendationData);
   } catch (error) {

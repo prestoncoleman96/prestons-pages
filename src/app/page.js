@@ -25,6 +25,22 @@ const PLACEHOLDER_VIBES = [
   "e.g. A magical realism novel set in a small seaside village with folklore motifs, cozy local characters, and gorgeous poetic prose."
 ];
 
+const getSpineColor = (title) => {
+  const colors = [
+    'linear-gradient(135deg, #4c1111, #240505)', // Crimson Burgundy
+    'linear-gradient(135deg, #113f2c, #071f14)', // Forest Green
+    'linear-gradient(135deg, #162942, #0a1421)', // Midnight Blue
+    'linear-gradient(135deg, #382c16, #1c150a)', // Dark Gold Brown
+    'linear-gradient(135deg, #3d2347, #1f0e24)'  // Deep Royal Purple
+  ];
+  if (!title) return colors[0];
+  let hash = 0;
+  for (let i = 0; i < title.length; i++) {
+    hash = title.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+};
+
 export default function Home() {
   const [name, setName] = useState('');
   const [vibe, setVibe] = useState('');
@@ -33,6 +49,8 @@ export default function Home() {
   const [recommendation, setRecommendation] = useState(null);
   const [error, setError] = useState(null);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState('');
   const recommendationCache = useRef({});
 
   useEffect(() => {
@@ -41,6 +59,31 @@ export default function Home() {
     }, 4500);
     return () => clearInterval(interval);
   }, []);
+
+  const handleFeedback = async (wasHelpful, alreadyRead) => {
+    if (!recommendation?.logId) return;
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          logId: recommendation.logId,
+          wasHelpful,
+          alreadyRead,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFeedbackSubmitted(true);
+        setFeedbackMsg(data.message || 'Thank you for your cozy feedback!');
+      } else {
+        alert(data.error || 'Failed to submit feedback.');
+      }
+    } catch (err) {
+      console.error('Feedback error:', err);
+      alert('Failed to submit feedback.');
+    }
+  };
 
   const handleShare = () => {
     if (!recommendation) return;
@@ -77,6 +120,8 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setRecommendation(null);
+    setFeedbackSubmitted(false);
+    setFeedbackMsg('');
 
     const filteredBooks = booksList.filter(book => book.trim() !== '');
     const cacheKey = JSON.stringify({ name, vibe: vibeText, favoriteBooks: filteredBooks });
@@ -147,6 +192,8 @@ export default function Home() {
     setRecommendation(null);
     setVibe('');
     setFavoriteBooks(['']);
+    setFeedbackSubmitted(false);
+    setFeedbackMsg('');
   };
 
   const renderStars = (ratingStr) => {
@@ -322,9 +369,25 @@ export default function Home() {
                       e.target.nextSibling.style.display = 'flex';
                     }}
                   />
-                  <div className="cozy-cover-fallback" style={{ display: 'none', width: '100%', height: '100%', background: 'linear-gradient(135deg, #2d241d, #1c150c)', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '1.25rem', textAlign: 'center', borderLeft: '3px solid var(--accent-gold)' }}>
-                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{recommendation.title}</span>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>{recommendation.author}</span>
+                  <div 
+                    className="cozy-cover-fallback" 
+                    style={{ 
+                      display: 'none', 
+                      width: '100%', 
+                      height: '100%', 
+                      background: recommendation ? getSpineColor(recommendation.title) : 'var(--bg-secondary)', 
+                      flexDirection: 'column', 
+                      justifyContent: 'center', 
+                      alignItems: 'center', 
+                      padding: '1.25rem', 
+                      textAlign: 'center', 
+                      borderLeft: '5px double var(--accent-gold)', 
+                      borderRight: '1px solid rgba(255,255,255,0.12)',
+                      boxShadow: 'inset 4px 0 10px rgba(0,0,0,0.5), inset -2px 0 5px rgba(255,255,255,0.15)'
+                    }}
+                  >
+                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: '0.85rem', fontWeight: 'bold', color: '#f5ebe0', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>{recommendation.title}</span>
+                    <span style={{ fontSize: '0.65rem', color: '#bbaea0', marginTop: '0.5rem', textShadow: '1px 1px 2px rgba(0,0,0,0.8)', letterSpacing: '0.5px' }}>{recommendation.author}</span>
                   </div>
                 </div>
               )}
@@ -371,6 +434,48 @@ export default function Home() {
                     <p className="reco-notes">
                       {recommendation.myReview}
                     </p>
+                  </div>
+                )}
+
+                {/* Telemetry Reader Feedback Loop */}
+                {recommendation.logId && (
+                  <div className="reco-section" style={{ borderTop: '1px solid rgba(223,171,82,0.1)', paddingTop: '1.5rem', marginTop: '1.5rem' }}>
+                    {feedbackSubmitted ? (
+                      <p style={{ fontSize: '0.85rem', color: 'var(--accent-gold)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        {feedbackMsg}
+                      </p>
+                    ) : (
+                      <div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>Was this recommendation helpful?</span>
+                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            className="share-btn"
+                            onClick={() => handleFeedback(true, false)}
+                            style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', borderColor: 'rgba(223,171,82,0.2)' }}
+                          >
+                            👍 Yes
+                          </button>
+                          <button
+                            type="button"
+                            className="share-btn"
+                            onClick={() => handleFeedback(false, false)}
+                            style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', borderColor: 'rgba(223,171,82,0.2)' }}
+                          >
+                            👎 No
+                          </button>
+                          <button
+                            type="button"
+                            className="share-btn"
+                            onClick={() => handleFeedback(true, true)}
+                            style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', borderColor: 'rgba(223,171,82,0.2)' }}
+                          >
+                            📖 I&apos;ve already read it!
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

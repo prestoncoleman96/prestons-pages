@@ -81,3 +81,19 @@ alter table public.recommendation_logs enable row level security;
 -- Allow anonymous inserts (anyone using the site can submit logs when they search)
 create policy "Allow anonymous inserts" on public.recommendation_logs
   for insert with check (true);
+
+-- Create a table to log reader feedback on recommendations
+create table if not exists public.recommendation_feedback (
+  id bigint generated always as identity primary key,
+  recommendation_log_id bigint references public.recommendation_logs(id) on delete cascade,
+  was_helpful boolean,
+  already_read boolean,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable Row Level Security (RLS) on recommendation_feedback
+alter table public.recommendation_feedback enable row level security;
+
+-- Allow anonymous inserts (users can post feedback anonymously)
+create policy "Allow anonymous feedback inserts" on public.recommendation_feedback
+  for insert with check (true);
