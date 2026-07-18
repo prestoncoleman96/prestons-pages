@@ -173,8 +173,8 @@ export async function POST(request) {
 
     // Determine mode
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const isSupabaseConfigured = supabaseUrl && supabaseAnonKey;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const isSupabaseConfigured = supabaseUrl && supabaseServiceKey;
 
     let candidates = [];
     let searchMode = 'Local CSV';
@@ -373,7 +373,7 @@ Provide your response in JSON format. Use the following keys:
     // Log the recommendation query & output to Supabase in the background
     if (isSupabaseConfigured) {
       try {
-        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
         const { data: insertedRows, error: logError } = await supabase
           .from('recommendation_logs')
           .insert({
