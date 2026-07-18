@@ -3,7 +3,7 @@ import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 import Papa from 'papaparse';
-import localEmbeddings from '../../../../../embeddings.json';
+import localEmbeddings from '../../../../embeddings.json';
 
 // Set runtime config if needed
 export const dynamic = 'force-dynamic';
