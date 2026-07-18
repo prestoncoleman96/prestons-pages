@@ -224,6 +224,21 @@ export async function POST(request) {
       candidates = findLocalCandidates(allBooks, favoriteBooks, vibe);
     }
 
+    // Filter out candidates that match the user's favorite books list (they already read them)
+    const favoriteTitles = (favoriteBooks || [])
+      .map(t => (t || '').trim().toLowerCase())
+      .filter(t => t.length > 0);
+
+    let filteredCandidates = candidates.filter(c => {
+      const cTitle = (c.Title || c.title || '').trim().toLowerCase();
+      if (!cTitle) return true;
+      return !favoriteTitles.some(fav => cTitle === fav || cTitle.includes(fav) || fav.includes(cTitle));
+    });
+
+    if (filteredCandidates.length === 0) {
+      filteredCandidates = candidates;
+    }
+
     // Construct generation prompt for Gemini
     const prompt = `You are a personal book recommendation advisor.
 A user named "${name || 'Reader'}" has requested a personalized book recommendation.
@@ -233,7 +248,7 @@ Visitor Profile:
 - 1-3 Favorite Books: [${favoriteBooks.join(', ')}]
 
 Here are some candidate books from my personal reading library (the library contains over 1,200 books I've read and rated):
-${candidates.map((c, i) => {
+${filteredCandidates.map((c, i) => {
   const cTitle = c.Title || c.title;
   const cAuthor = c.Authors || c.authors || c.Author || c.author;
   const cGenre = c.Genre || c.genre || 'General';
