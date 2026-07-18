@@ -1,4 +1,5 @@
 import { Inter, Lora } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/react';
 import './globals.css';
 
 const inter = Inter({
@@ -26,6 +27,7 @@ export default function RootLayout({ children }) {
         <div className="ambient-glow-1" />
         <div className="ambient-glow-2" />
         {children}
+        <Analytics />
       </body>
     </html>
   );
