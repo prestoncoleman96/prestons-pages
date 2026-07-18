@@ -135,14 +135,17 @@ const API_CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache window
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, vibe, favoriteBooks = [] } = body;
+    const { name, vibe, favoriteBooks = [], excludeBooks = [], refinement = null, rejectedBookTitle = null } = body;
 
-    // Check server-side memory cache first
+    // Check server-side memory cache first (only for initial non-refinement queries)
+    const isRefinement = refinement || (excludeBooks && excludeBooks.length > 0);
     const apiCacheKey = JSON.stringify({ name, vibe, favoriteBooks });
-    const cachedEntry = apiCache.get(apiCacheKey);
-    if (cachedEntry && Date.now() - cachedEntry.timestamp < API_CACHE_TTL) {
-      console.log('Serving recommendation from server-side memory cache.');
-      return Response.json(cachedEntry.data);
+    if (!isRefinement) {
+      const cachedEntry = apiCache.get(apiCacheKey);
+      if (cachedEntry && Date.now() - cachedEntry.timestamp < API_CACHE_TTL) {
+        console.log('Serving recommendation from server-side memory cache.');
+        return Response.json(cachedEntry.data);
+      }
     }
 
     // 0. Simple IP rate-limiting to protect API usage
@@ -205,6 +208,19 @@ export async function POST(request) {
         }
 
         if (queryEmbedding) {
+          // If different vein, perform vector negation (move query vector away from the rejected book vector)
+          if (refinement === 'different_vein' && rejectedBookTitle) {
+            const rejectedBook = localEmbeddings.find(x => (x.Title || x.title || '').trim().toLowerCase() === rejectedBookTitle.trim().toLowerCase());
+            if (rejectedBook && rejectedBook.embedding) {
+              const adjustedValues = queryEmbedding.map((val, idx) => val - 0.45 * rejectedBook.embedding[idx]);
+              const magnitude = Math.sqrt(adjustedValues.reduce((sum, v) => sum + v * v, 0));
+              if (magnitude > 0) {
+                queryEmbedding = adjustedValues.map(v => v / magnitude);
+              }
+              console.log(`Vector negation applied: Adjusted query away from "${rejectedBookTitle}"`);
+            }
+          }
+
           // Priority A: Search local JSON vector database (Option B)
           if (hasLocalEmbeddings) {
             // Find embeddings of favorite books from our library database
@@ -213,9 +229,11 @@ export async function POST(request) {
               .map(t => (t || '').trim().toLowerCase())
               .filter(t => t.length > 0);
 
+            // Set of titles to exclude (already read or rejected in this session)
+            const excludeSet = new Set((excludeBooks || []).map(t => t.trim().toLowerCase()));
+
             if (favoriteTitles.length > 0) {
               favoriteTitles.forEach(favTitle => {
-                // Find case-insensitive match in our local library
                 const foundBook = localEmbeddings.find(b => {
                   const bTitle = (b.Title || b.title || '').trim().toLowerCase();
                   return bTitle === favTitle || bTitle.includes(favTitle);
@@ -227,6 +245,10 @@ export async function POST(request) {
             }
 
             const scored = localEmbeddings
+              .filter(b => {
+                const bTitle = (b.Title || b.title || '').trim().toLowerCase();
+                return !excludeSet.has(bTitle);
+              })
               .map(b => {
                 const vibeSim = cosineSimilarity(queryEmbedding, b.embedding);
                 
@@ -304,6 +326,17 @@ export async function POST(request) {
       filteredCandidates = candidates;
     }
 
+    let promptInstructions = `Based on the visitor's vibe and favorite books, select the SINGLE BEST book from my personal library candidates to recommend to them.
+DO NOT recommend any book that is not in the candidate list above.`;
+
+    if (refinement === 'same_vein') {
+      promptInstructions = `The visitor has already read the previous book. Based on their original vibe ("${vibe}"), select another book in the EXACT SAME VEIN (similar style, writing tone, or theme) from the candidates above.
+DO NOT recommend any book that is not in the candidate list above.`;
+    } else if (refinement === 'different_vein' && rejectedBookTitle) {
+      promptInstructions = `The visitor rejected the previous book ("${rejectedBookTitle}") as "not their vibe". Select a book from the candidates above that is SUBSTANTIALLY DIFFERENT in tone, pacing, or style from "${rejectedBookTitle}" (e.g. if the last one was a slow gothic mystery, choose a faster-paced thriller or non-fiction from the candidates instead), but still fits their general profile.
+DO NOT recommend any book that is not in the candidate list above.`;
+    }
+
     // Construct generation prompt for Gemini
     const prompt = `You are a personal book recommendation advisor.
 A user named "${name || 'Reader'}" has requested a personalized book recommendation.
@@ -330,8 +363,7 @@ ${filteredCandidates.map((c, i) => {
    ISBN: "${cIsbn}"`;
 }).join('\n\n')}
 
-Based on the visitor's vibe and favorite books, select the SINGLE BEST book from my personal library candidates to recommend to them.
-DO NOT recommend any book that is not in the candidate list above.
+${promptInstructions}
 
 Provide your response in JSON format. Use the following keys:
 {

@@ -72,6 +72,7 @@ export default function Home() {
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState('');
+  const [seenBooks, setSeenBooks] = useState([]);
   const recommendationCache = useRef({});
 
   useEffect(() => {
@@ -81,10 +82,15 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleFeedback = async (wasHelpful, alreadyRead) => {
+  const handleFeedbackAction = async (actionType) => {
     if (!recommendation?.logId) return;
+
+    // 1. Submit telemetry feedback to Supabase in the background
+    const wasHelpful = actionType === 'yes' || actionType === 'already_read';
+    const alreadyRead = actionType === 'already_read';
+
     try {
-      const res = await fetch('/api/feedback', {
+      fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -92,17 +98,24 @@ export default function Home() {
           wasHelpful,
           alreadyRead,
         }),
-      });
-      const data = await res.json();
-      if (res.ok) {
+      }).catch(err => console.error('Feedback telemetry failed:', err));
+
+      // 2. Perform the client action
+      if (actionType === 'already_read') {
+        setFeedbackMsg('Seeking another book in the same vein...');
         setFeedbackSubmitted(true);
-        setFeedbackMsg(data.message || 'Thank you for your cozy feedback!');
+        await fetchRecommendation(vibe, favoriteBooks, 'same_vein');
+      } else if (actionType === 'not_my_vibe') {
+        setFeedbackMsg('Seeking a substantially different book...');
+        setFeedbackSubmitted(true);
+        await fetchRecommendation(vibe, favoriteBooks, 'different_vein', recommendation.title);
       } else {
-        alert(data.error || 'Failed to submit feedback.');
+        // 'yes'
+        setFeedbackSubmitted(true);
+        setFeedbackMsg('Thank you! Glad you found a cozy recommendation.');
       }
     } catch (err) {
-      console.error('Feedback error:', err);
-      alert('Failed to submit feedback.');
+      console.error('Feedback action error:', err);
     }
   };
 
@@ -148,19 +161,30 @@ export default function Home() {
     setFavoriteBooks(updated);
   };
 
-  const fetchRecommendation = async (vibeText, booksList) => {
+  const fetchRecommendation = async (vibeText, booksList, refinement = null, rejectedTitle = null) => {
     setLoading(true);
     setError(null);
-    setRecommendation(null);
+    
+    // Only reset recommendation and seen history if it's a completely new query
+    if (!refinement) {
+      setRecommendation(null);
+      setSeenBooks([]);
+    }
     setFeedbackSubmitted(false);
     setFeedbackMsg('');
 
     const filteredBooks = booksList.filter(book => book.trim() !== '');
+    
+    // Add previously recommended books in this session to the exclusion list
+    const excludeBooks = refinement ? [...seenBooks] : [];
     const cacheKey = JSON.stringify({ name, vibe: vibeText, favoriteBooks: filteredBooks });
 
-    if (recommendationCache.current[cacheKey]) {
+    // Client cache is only used for fresh new queries
+    if (!refinement && recommendationCache.current[cacheKey]) {
       console.log('Serving recommendation from client cache.');
-      setRecommendation(recommendationCache.current[cacheKey]);
+      const cachedData = recommendationCache.current[cacheKey];
+      setRecommendation(cachedData);
+      setSeenBooks([cachedData.title]);
       setLoading(false);
       setTimeout(() => {
         const resultSection = document.getElementById('recommendation-result');
@@ -181,6 +205,9 @@ export default function Home() {
           name,
           vibe: vibeText,
           favoriteBooks: filteredBooks,
+          excludeBooks,
+          refinement,
+          rejectedBookTitle: rejectedTitle,
         }),
       });
 
@@ -190,8 +217,13 @@ export default function Home() {
         throw new Error(data.error || 'Failed to fetch recommendation.');
       }
 
-      recommendationCache.current[cacheKey] = data;
+      // Only cache initial results
+      if (!refinement) {
+        recommendationCache.current[cacheKey] = data;
+      }
+      
       setRecommendation(data);
+      setSeenBooks(prev => [...prev, data.title]);
       
       setTimeout(() => {
         const resultSection = document.getElementById('recommendation-result');
@@ -224,6 +256,7 @@ export default function Home() {
     setRecommendation(null);
     setVibe('');
     setFavoriteBooks(['']);
+    setSeenBooks([]);
     setFeedbackSubmitted(false);
     setFeedbackMsg('');
   };
@@ -497,31 +530,31 @@ export default function Home() {
                       </p>
                     ) : (
                       <div>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>Was this recommendation helpful?</span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>Is this book match to your liking?</span>
                         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                           <button
                             type="button"
                             className="share-btn"
-                            onClick={() => handleFeedback(true, false)}
+                            onClick={() => handleFeedbackAction('yes')}
                             style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', borderColor: 'rgba(223,171,82,0.2)' }}
                           >
-                            👍 Yes
+                            👍 Love it!
                           </button>
                           <button
                             type="button"
                             className="share-btn"
-                            onClick={() => handleFeedback(false, false)}
+                            onClick={() => handleFeedbackAction('already_read')}
                             style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', borderColor: 'rgba(223,171,82,0.2)' }}
                           >
-                            👎 No
+                            📖 Already read it
                           </button>
                           <button
                             type="button"
                             className="share-btn"
-                            onClick={() => handleFeedback(true, true)}
+                            onClick={() => handleFeedbackAction('not_my_vibe')}
                             style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', borderColor: 'rgba(223,171,82,0.2)' }}
                           >
-                            📖 I&apos;ve already read it!
+                            👎 Not my vibe
                           </button>
                         </div>
                       </div>
