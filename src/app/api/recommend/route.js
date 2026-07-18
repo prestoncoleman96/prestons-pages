@@ -208,11 +208,17 @@ export async function POST(request) {
           // Priority A: Search local JSON vector database (Option B)
           if (hasLocalEmbeddings) {
             const scored = localEmbeddings
-              .map(b => ({
-                book: b,
-                similarity: cosineSimilarity(queryEmbedding, b.embedding)
-              }))
-              .sort((a, b) => b.similarity - a.similarity);
+              .map(b => {
+                const baseSim = cosineSimilarity(queryEmbedding, b.embedding);
+                // Add a tiny random offset (+/- 0.015) to introduce candidate variety (entropy)
+                const noise = (Math.random() - 0.5) * 0.03;
+                return {
+                  book: b,
+                  similarity: baseSim,
+                  sortScore: baseSim + noise
+                };
+              })
+              .sort((a, b) => b.sortScore - a.sortScore);
 
             candidates = scored.slice(0, 10).map(item => ({
               ...item.book,
