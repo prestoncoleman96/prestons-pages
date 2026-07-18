@@ -42,9 +42,30 @@ const getSpineColor = (title) => {
 };
 
 export default function Home() {
-  const [name, setName] = useState('');
-  const [vibe, setVibe] = useState('');
-  const [favoriteBooks, setFavoriteBooks] = useState(['']);
+  const [name, setName] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('name') || '';
+    }
+    return '';
+  });
+  const [vibe, setVibe] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('vibe') || '';
+    }
+    return '';
+  });
+  const [favoriteBooks, setFavoriteBooks] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlBooks = params.getAll('book');
+      if (urlBooks && urlBooks.length > 0) {
+        return urlBooks;
+      }
+    }
+    return [''];
+  });
   const [loading, setLoading] = useState(false);
   const [recommendation, setRecommendation] = useState(null);
   const [error, setError] = useState(null);
@@ -87,9 +108,20 @@ export default function Home() {
 
   const handleShare = () => {
     if (!recommendation) return;
-    const shareText = `Preston's Pages recommended "${recommendation.title}" by ${recommendation.author} for my vibe! 📖\n\n"${recommendation.recommendedReason}"\n\nSeek your own recommendation here: ${window.location.origin}`;
+
+    // Construct pre-filled deep-link URL query params
+    const params = new URLSearchParams();
+    if (name) params.set('name', name);
+    if (vibe) params.set('vibe', vibe);
+    favoriteBooks
+      .filter(b => b.trim() !== '')
+      .forEach(b => params.append('book', b));
+
+    const shareUrl = `${window.location.origin}/?${params.toString()}`;
+    const shareText = `Preston's Pages recommended "${recommendation.title}" by ${recommendation.author} for my vibe! 📖\n\n"${recommendation.recommendedReason}"\n\nTry this vibe yourself: ${shareUrl}`;
+
     navigator.clipboard.writeText(shareText);
-    alert('Cozy recommendation copied to clipboard!');
+    alert('Cozy deep-link recommendation copied to clipboard!');
   };
 
   const handleApplyPreset = (preset) => {
