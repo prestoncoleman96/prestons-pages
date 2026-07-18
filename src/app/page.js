@@ -390,36 +390,54 @@ export default function Home() {
           {!loading && !error && recommendation && (
             <div className="recommendation-card-content" style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
               {recommendation.isbn && (
-                <div className="reco-cover-wrapper" style={{ flexShrink: 0, width: '155px', height: '232px', position: 'relative', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.6)', border: '1px solid var(--glass-border)' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img 
-                    src={`https://covers.openlibrary.org/b/isbn/${recommendation.isbn.trim()}-L.jpg`} 
-                    alt={recommendation.title}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                  <div 
-                    className="cozy-cover-fallback" 
-                    style={{ 
-                      display: 'none', 
-                      width: '100%', 
-                      height: '100%', 
-                      background: recommendation ? getSpineColor(recommendation.title) : 'var(--bg-secondary)', 
-                      flexDirection: 'column', 
-                      justifyContent: 'center', 
-                      alignItems: 'center', 
-                      padding: '1.25rem', 
-                      textAlign: 'center', 
-                      borderLeft: '5px double var(--accent-gold)', 
-                      borderRight: '1px solid rgba(255,255,255,0.12)',
-                      boxShadow: 'inset 4px 0 10px rgba(0,0,0,0.5), inset -2px 0 5px rgba(255,255,255,0.15)'
-                    }}
-                  >
-                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: '0.85rem', fontWeight: 'bold', color: '#f5ebe0', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>{recommendation.title}</span>
-                    <span style={{ fontSize: '0.65rem', color: '#bbaea0', marginTop: '0.5rem', textShadow: '1px 1px 2px rgba(0,0,0,0.8)', letterSpacing: '0.5px' }}>{recommendation.author}</span>
+                <div className="book-3d-container" style={{ flexShrink: 0 }}>
+                  <div className="book-3d">
+                    {/* Front Cover Side */}
+                    <div className="book-side-front">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={`https://covers.openlibrary.org/b/isbn/${recommendation.isbn.trim()}-L.jpg`} 
+                        alt={recommendation.title}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                      <div 
+                        className="cozy-cover-fallback" 
+                        style={{ 
+                          display: 'none', 
+                          width: '100%', 
+                          height: '100%', 
+                          background: recommendation ? getSpineColor(recommendation.title) : 'var(--bg-secondary)', 
+                          flexDirection: 'column', 
+                          justifyContent: 'center', 
+                          alignItems: 'center', 
+                          padding: '1.25rem', 
+                          textAlign: 'center', 
+                          borderLeft: '5px double var(--accent-gold)', 
+                          borderRight: '1px solid rgba(255,255,255,0.12)',
+                          boxShadow: 'inset 4px 0 10px rgba(0,0,0,0.5), inset -2px 0 5px rgba(255,255,255,0.15)'
+                        }}
+                      >
+                        <span style={{ fontFamily: 'var(--font-serif)', fontSize: '0.85rem', fontWeight: 'bold', color: '#f5ebe0', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>{recommendation.title}</span>
+                        <span style={{ fontSize: '0.65rem', color: '#bbaea0', marginTop: '0.5rem', textShadow: '1px 1px 2px rgba(0,0,0,0.8)', letterSpacing: '0.5px' }}>{recommendation.author}</span>
+                      </div>
+                    </div>
+                    {/* Back Cover Side */}
+                    <div 
+                      className="book-side-back" 
+                      style={{ 
+                        background: recommendation ? getSpineColor(recommendation.title) : 'var(--bg-secondary)',
+                        boxShadow: 'inset 4px 0 10px rgba(0,0,0,0.5), inset -2px 0 5px rgba(255,255,255,0.15)' 
+                      }}
+                    >
+                      <span style={{ fontFamily: 'var(--font-serif)', fontSize: '0.85rem', fontWeight: 'bold', color: '#f5ebe0', textShadow: '1px 1px 2px rgba(0,0,0,0.8)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{recommendation.title}</span>
+                      <span style={{ fontSize: '0.65rem', color: '#bbaea0', marginTop: '0.5rem', marginBottom: '1.5rem', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>by {recommendation.author}</span>
+                      <span className="search-mode-tag" style={{ margin: 0, fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '1px' }}>{recommendation.genre}</span>
+                      <div style={{ marginTop: '0.75rem', fontSize: '0.9rem', color: 'var(--accent-gold)' }}>★ {recommendation.myRating || '5/5'}</div>
+                    </div>
                   </div>
                 </div>
               )}

@@ -26,6 +26,21 @@ export default function RootLayout({ children }) {
         {/* Fireplace-like ambient glows */}
         <div className="ambient-glow-1" />
         <div className="ambient-glow-2" />
+        
+        {/* Ambient floating hearth embers */}
+        <div className="hearth-particles">
+          <div className="particle" />
+          <div className="particle" />
+          <div className="particle" />
+          <div className="particle" />
+          <div className="particle" />
+          <div className="particle" />
+          <div className="particle" />
+          <div className="particle" />
+          <div className="particle" />
+          <div className="particle" />
+        </div>
+
         {children}
         <Analytics />
       </body>
