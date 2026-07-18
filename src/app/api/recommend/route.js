@@ -126,10 +126,29 @@ function findLocalCandidates(books, favoriteBooks, vibe) {
   return topCandidates;
 }
 
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_MINUTE = 6;
+
 export async function POST(request) {
   try {
     const body = await request.json();
     const { name, vibe, favoriteBooks = [] } = body;
+
+    // 0. Simple IP rate-limiting to protect API usage
+    const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    const now = Date.now();
+    if (!rateLimitMap.has(ip)) {
+      rateLimitMap.set(ip, []);
+    }
+    const timestamps = rateLimitMap.get(ip).filter(t => now - t < RATE_LIMIT_WINDOW);
+    if (timestamps.length >= MAX_REQUESTS_PER_MINUTE) {
+      return Response.json({
+        error: 'You have consulted the archives too many times recently. Please take a cozy pause and try again in a minute!'
+      }, { status: 429 });
+    }
+    timestamps.push(now);
+    rateLimitMap.set(ip, timestamps);
 
     if (!vibe) {
       return Response.json({ error: 'Reading vibe description is required.' }, { status: 400 });

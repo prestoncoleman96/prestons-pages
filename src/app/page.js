@@ -9,6 +9,14 @@ const VIBE_PRESETS = [
   { label: '🌲 Wilderness Memoirs', vibe: 'A thoughtful, peaceful nature adventure or memoir about living in isolation in the wilderness.', books: ['Walden'] }
 ];
 
+const SURPRISE_VIBES = [
+  { vibe: 'A fast-paced, high-stakes science fiction adventure with quick wit, political maneuvering, and rich character conflicts.', books: ['Red Rising'] },
+  { vibe: 'A beautifully written magical realism story with rich descriptions, dealing with memory, solitude, and quiet wonder.', books: ['Piranesi', 'The Ocean at the End of the Lane'] },
+  { vibe: 'An intellectual campus mystery about academic obsession, secrets, and a dark gothic atmosphere.', books: ['The Secret History'] },
+  { vibe: 'A thoughtful historical non-fiction that feels like a thriller, containing surprising history facts and wit.', books: ['How to Hide an Empire'] },
+  { vibe: 'A classic sci-fi that holds up, dealing with deep philosophical questions of morality, faith, and human connection.', books: ['A Case of Conscience'] }
+];
+
 export default function Home() {
   const [name, setName] = useState('');
   const [vibe, setVibe] = useState('');
@@ -49,22 +57,18 @@ export default function Home() {
     setFavoriteBooks(updated);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const fetchRecommendation = async (vibeText, booksList) => {
     setLoading(true);
     setError(null);
     setRecommendation(null);
 
-    // Filter out empty book entries
-    const filteredBooks = favoriteBooks.filter(book => book.trim() !== '');
+    const filteredBooks = booksList.filter(book => book.trim() !== '');
+    const cacheKey = JSON.stringify({ name, vibe: vibeText, favoriteBooks: filteredBooks });
 
-    // Check client-side recommendation cache
-    const cacheKey = JSON.stringify({ name, vibe, favoriteBooks: filteredBooks });
     if (recommendationCache.current[cacheKey]) {
       console.log('Serving recommendation from client cache.');
       setRecommendation(recommendationCache.current[cacheKey]);
       setLoading(false);
-      // Smooth scroll to the result on mobile
       setTimeout(() => {
         const resultSection = document.getElementById('recommendation-result');
         if (resultSection) {
@@ -82,7 +86,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           name,
-          vibe,
+          vibe: vibeText,
           favoriteBooks: filteredBooks,
         }),
       });
@@ -93,12 +97,9 @@ export default function Home() {
         throw new Error(data.error || 'Failed to fetch recommendation.');
       }
 
-      // Store in client-side cache
       recommendationCache.current[cacheKey] = data;
-
       setRecommendation(data);
       
-      // Smooth scroll to the result on mobile
       setTimeout(() => {
         const resultSection = document.getElementById('recommendation-result');
         if (resultSection) {
@@ -111,6 +112,19 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await fetchRecommendation(vibe, favoriteBooks);
+  };
+
+  const handleSurpriseMe = async () => {
+    const randomVibe = SURPRISE_VIBES[Math.floor(Math.random() * SURPRISE_VIBES.length)];
+    setName('');
+    setVibe(randomVibe.vibe);
+    setFavoriteBooks(randomVibe.books);
+    await fetchRecommendation(randomVibe.vibe, randomVibe.books);
   };
 
   const resetSearch = () => {
@@ -222,19 +236,31 @@ export default function Home() {
               )}
             </div>
 
-            <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? (
-                <>
-                  <span className="book-spinner" style={{ width: '18px', height: '18px', borderWidth: '2px', marginBottom: 0, marginRight: '8px' }}></span>
-                  Consulting the Archives...
-                </>
-              ) : (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/></svg>
-                  Seek a Recommendation
-                </>
-              )}
-            </button>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <button type="submit" className="submit-btn" disabled={loading} style={{ flex: 2, minWidth: '180px' }}>
+                {loading ? (
+                  <>
+                    <span className="book-spinner" style={{ width: '18px', height: '18px', borderWidth: '2px', marginBottom: 0, marginRight: '8px' }}></span>
+                    Consulting the Archives...
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/></svg>
+                    Seek a Recommendation
+                  </>
+                )}
+              </button>
+              <button 
+                type="button" 
+                className="share-btn" 
+                disabled={loading} 
+                onClick={handleSurpriseMe}
+                style={{ flex: 1, minWidth: '100px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.4rem', borderStyle: 'solid', borderColor: 'rgba(223, 171, 82, 0.3)' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><circle cx="15.5" cy="8.5" r="1.5"/><circle cx="8.5" cy="15.5" r="1.5"/><circle cx="15.5" cy="15.5" r="1.5"/></svg>
+                Surprise Me
+              </button>
+            </div>
           </form>
           </section>
 
