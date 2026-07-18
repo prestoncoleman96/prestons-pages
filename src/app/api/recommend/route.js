@@ -300,6 +300,34 @@ Provide your response in JSON format. Use the following keys:
     // Attach search mode meta data
     recommendationData.searchMode = searchMode;
 
+    // Log the recommendation query & output to Supabase in the background (non-blocking)
+    if (isSupabaseConfigured) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        supabase
+          .from('recommendation_logs')
+          .insert({
+            reader_name: name || 'Reader',
+            vibe: vibe,
+            favorite_books: favoriteBooks,
+            recommended_title: recommendationData.title,
+            recommended_author: recommendationData.author,
+            recommended_reason: recommendationData.recommendedReason,
+            search_mode: searchMode,
+          })
+          .then(({ error }) => {
+            if (error) {
+              console.warn('Warning: Failed to insert recommendation log to Supabase:', error.message);
+            }
+          })
+          .catch((err) => {
+            console.warn('Warning: Exception logging recommendation to Supabase:', err.message);
+          });
+      } catch (logErr) {
+        console.warn('Warning: Exception initializing log to Supabase:', logErr.message);
+      }
+    }
+
     return Response.json(recommendationData);
   } catch (error) {
     console.error('Recommendation API error:', error);

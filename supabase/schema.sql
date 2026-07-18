@@ -61,3 +61,23 @@ begin
   limit match_count;
 end;
 $$;
+
+-- Create a table to log recommendations
+create table if not exists public.recommendation_logs (
+  id bigint generated always as identity primary key,
+  reader_name text,
+  vibe text,
+  favorite_books text[],
+  recommended_title text,
+  recommended_author text,
+  recommended_reason text,
+  search_mode text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable Row Level Security (RLS) on recommendation_logs
+alter table public.recommendation_logs enable row level security;
+
+-- Allow anonymous inserts (anyone using the site can submit logs when they search)
+create policy "Allow anonymous inserts" on public.recommendation_logs
+  for insert with check (true);
