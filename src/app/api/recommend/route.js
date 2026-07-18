@@ -3,12 +3,10 @@ import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 import Papa from 'papaparse';
+import localEmbeddings from '../../../../../embeddings.json';
 
 // Set runtime config if needed
 export const dynamic = 'force-dynamic';
-
-// Cache parsed local embeddings in memory to speed up warm-start requests
-let cachedEmbeddings = null;
 
 // Helper to strip HTML tags and clean up common entities
 function stripHtml(html) {
@@ -181,8 +179,7 @@ export async function POST(request) {
     let candidates = [];
     let searchMode = 'Local CSV';
 
-    const embeddingsPath = path.resolve(process.cwd(), 'embeddings.json');
-    const hasLocalEmbeddings = fs.existsSync(embeddingsPath);
+    const hasLocalEmbeddings = Array.isArray(localEmbeddings) && localEmbeddings.length > 0;
 
     // 1. If local vector database or Supabase is available, we generate a query embedding
     if (hasLocalEmbeddings || isSupabaseConfigured) {
@@ -210,11 +207,7 @@ export async function POST(request) {
         if (queryEmbedding) {
           // Priority A: Search local JSON vector database (Option B)
           if (hasLocalEmbeddings) {
-            if (!cachedEmbeddings) {
-              console.log('Loading and parsing local embeddings.json into memory cache...');
-              cachedEmbeddings = JSON.parse(fs.readFileSync(embeddingsPath, 'utf8'));
-            }
-            const scored = cachedEmbeddings
+            const scored = localEmbeddings
               .map(b => ({
                 book: b,
                 similarity: cosineSimilarity(queryEmbedding, b.embedding)
