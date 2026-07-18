@@ -25,6 +25,11 @@
 
 body {
   background-color: var(--bg-primary);
+  background-image: linear-gradient(rgba(14, 12, 10, 0.88), rgba(14, 12, 10, 0.93)), url('/cozy_library_bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-sans);
   min-height: 100vh;

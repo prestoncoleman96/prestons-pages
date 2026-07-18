@@ -9,10 +9,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [recommendation, setRecommendation] = useState(null);
   const [error, setError] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [rainVolume, setRainVolume] = useState(0.4);
-  const [fireVolume, setFireVolume] = useState(0.4);
-  const audioSourcesRef = useRef(null);
   const recommendationCache = useRef({});
 
   const handleAddBook = () => {
@@ -100,114 +96,6 @@ export default function Home() {
     setRecommendation(null);
     setVibe('');
     setFavoriteBooks(['']);
-  };
-
-  const startAmbiance = () => {
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
-
-      // 1. Create Brown Noise (Rain)
-      const bufferSize = 2 * ctx.sampleRate;
-      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const output = noiseBuffer.getChannelData(0);
-      let lastOut = 0.0;
-      for (let i = 0; i < bufferSize; i++) {
-        const white = Math.random() * 2 - 1;
-        output[i] = (lastOut + (0.02 * white)) / 1.02;
-        lastOut = output[i];
-        output[i] *= 3.5;
-      }
-
-      const rainSource = ctx.createBufferSource();
-      rainSource.buffer = noiseBuffer;
-      rainSource.loop = true;
-
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 800;
-
-      const rainGain = ctx.createGain();
-      rainGain.gain.value = rainVolume * 0.15;
-
-      rainSource.connect(filter);
-      filter.connect(rainGain);
-      rainGain.connect(ctx.destination);
-      rainSource.start(0);
-
-      // 2. Create Fire Crackle
-      const fireBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const fireOutput = fireBuffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        const randVal = Math.random();
-        if (randVal > 0.9998) {
-          fireOutput[i] = Math.random() * 2 - 1;
-        } else if (randVal > 0.999) {
-          fireOutput[i] = (Math.random() * 2 - 1) * 0.15;
-        } else {
-          fireOutput[i] = 0;
-        }
-      }
-
-      const fireSource = ctx.createBufferSource();
-      fireSource.buffer = fireBuffer;
-      fireSource.loop = true;
-
-      const fireFilter = ctx.createBiquadFilter();
-      fireFilter.type = 'bandpass';
-      fireFilter.frequency.value = 1200;
-      fireFilter.Q.value = 2.0;
-
-      const fireGain = ctx.createGain();
-      fireGain.gain.value = fireVolume * 0.35;
-
-      fireSource.connect(fireFilter);
-      fireFilter.connect(fireGain);
-      fireGain.connect(ctx.destination);
-      fireSource.start(0);
-
-      audioSourcesRef.current = { ctx, rainSource, fireSource, rainGain, fireGain };
-      setIsPlaying(true);
-    } catch (err) {
-      console.error('Failed to start audio ambiance:', err);
-    }
-  };
-
-  const stopAmbiance = () => {
-    if (audioSourcesRef.current) {
-      try {
-        audioSourcesRef.current.rainSource.stop();
-        audioSourcesRef.current.fireSource.stop();
-        audioSourcesRef.current.ctx.close();
-      } catch (e) {
-        console.error(e);
-      }
-      audioSourcesRef.current = null;
-    }
-    setIsPlaying(false);
-  };
-
-  const handleTogglePlay = () => {
-    if (isPlaying) {
-      stopAmbiance();
-    } else {
-      startAmbiance();
-    }
-  };
-
-  const handleRainVolChange = (v) => {
-    setRainVolume(v);
-    if (audioSourcesRef.current?.rainGain) {
-      audioSourcesRef.current.rainGain.gain.value = v * 0.15;
-    }
-  };
-
-  const handleFireVolChange = (v) => {
-    setFireVolume(v);
-    if (audioSourcesRef.current?.fireGain) {
-      audioSourcesRef.current.fireGain.gain.value = v * 0.35;
-    }
   };
 
   const renderStars = (ratingStr) => {
@@ -317,76 +205,7 @@ export default function Home() {
           </form>
           </section>
 
-          <section className="card" style={{ padding: '1.75rem' }}>
-            <h3 className="card-title" style={{ fontSize: '1.25rem', marginBottom: '1.25rem', borderBottom: 'none', paddingBottom: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-              Library Ambiance
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', fontStyle: 'italic' }}>
-              Turn on synthesized ambient sounds for a cozy reading atmosphere.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <button 
-                type="button" 
-                className="submit-btn" 
-                onClick={handleTogglePlay}
-                style={{ 
-                  background: isPlaying ? 'transparent' : 'linear-gradient(135deg, var(--accent-gold-dim), var(--accent-gold))', 
-                  border: isPlaying ? '1px solid var(--accent-gold)' : 'none',
-                  color: isPlaying ? 'var(--accent-gold)' : '#1c150c',
-                  boxShadow: isPlaying ? 'none' : '0 4px 15px rgba(223, 171, 82, 0.2)'
-                }}
-              >
-                {isPlaying ? (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/></svg>
-                    Mute Ambiance
-                  </>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                    Enable Ambiance
-                  </>
-                )}
-              </button>
-              
-              {isPlaying && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', animation: 'fadeInDown 0.3s ease' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      <span>Rainfall (Brown Noise)</span>
-                      <span>{Math.round(rainVolume * 100)}%</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="1" 
-                      step="0.01" 
-                      value={rainVolume}
-                      onChange={(e) => handleRainVolChange(parseFloat(e.target.value))}
-                      style={{ accentColor: 'var(--accent-gold)', width: '100%', cursor: 'pointer' }}
-                    />
-                  </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      <span>Fire Crackle</span>
-                      <span>{Math.round(fireVolume * 100)}%</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="1" 
-                      step="0.01" 
-                      value={fireVolume}
-                      onChange={(e) => handleFireVolChange(parseFloat(e.target.value))}
-                      style={{ accentColor: 'var(--accent-gold)', width: '100%', cursor: 'pointer' }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
+
         </div>
 
         {/* Right Column: Recommendations Screen */}
