@@ -207,9 +207,41 @@ export async function POST(request) {
         if (queryEmbedding) {
           // Priority A: Search local JSON vector database (Option B)
           if (hasLocalEmbeddings) {
+            // Find embeddings of favorite books from our library database
+            const matchedFavEmbeddings = [];
+            const favoriteTitles = (favoriteBooks || [])
+              .map(t => (t || '').trim().toLowerCase())
+              .filter(t => t.length > 0);
+
+            if (favoriteTitles.length > 0) {
+              favoriteTitles.forEach(favTitle => {
+                // Find case-insensitive match in our local library
+                const foundBook = localEmbeddings.find(b => {
+                  const bTitle = (b.Title || b.title || '').trim().toLowerCase();
+                  return bTitle === favTitle || bTitle.includes(favTitle);
+                });
+                if (foundBook && foundBook.embedding) {
+                  matchedFavEmbeddings.push(foundBook.embedding);
+                }
+              });
+            }
+
             const scored = localEmbeddings
               .map(b => {
-                const baseSim = cosineSimilarity(queryEmbedding, b.embedding);
+                const vibeSim = cosineSimilarity(queryEmbedding, b.embedding);
+                
+                // Calculate similarity to their favorite books if we matched any in our library
+                let favSim = 0;
+                if (matchedFavEmbeddings.length > 0) {
+                  const sims = matchedFavEmbeddings.map(favEmbed => cosineSimilarity(b.embedding, favEmbed));
+                  favSim = sims.reduce((sum, s) => sum + s, 0) / sims.length;
+                }
+
+                // Hybrid scoring: 60% vibe description, 40% style similarity to books they love
+                const baseSim = matchedFavEmbeddings.length > 0 
+                  ? (vibeSim * 0.6) + (favSim * 0.4) 
+                  : vibeSim;
+
                 // Add a tiny random offset (+/- 0.015) to introduce candidate variety (entropy)
                 const noise = (Math.random() - 0.5) * 0.03;
                 return {

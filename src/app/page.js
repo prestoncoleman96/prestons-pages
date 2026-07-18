@@ -295,7 +295,7 @@ export default function Home() {
             </div>
 
             <div className="form-group">
-              <label>1-3 Books You Love</label>
+              <label>1-3 Books You Love (Optional)</label>
               <div className="fav-books-list">
                 {favoriteBooks.map((book, index) => (
                   <div key={index} className="fav-book-row">
