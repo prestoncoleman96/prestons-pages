@@ -13,6 +13,7 @@ export default function Home() {
   const [rainVolume, setRainVolume] = useState(0.4);
   const [fireVolume, setFireVolume] = useState(0.4);
   const audioSourcesRef = useRef(null);
+  const recommendationCache = useRef({});
 
   const handleAddBook = () => {
     if (favoriteBooks.length < 3) {
@@ -40,6 +41,22 @@ export default function Home() {
     // Filter out empty book entries
     const filteredBooks = favoriteBooks.filter(book => book.trim() !== '');
 
+    // Check client-side recommendation cache
+    const cacheKey = JSON.stringify({ name, vibe, favoriteBooks: filteredBooks });
+    if (recommendationCache.current[cacheKey]) {
+      console.log('Serving recommendation from client cache.');
+      setRecommendation(recommendationCache.current[cacheKey]);
+      setLoading(false);
+      // Smooth scroll to the result on mobile
+      setTimeout(() => {
+        const resultSection = document.getElementById('recommendation-result');
+        if (resultSection) {
+          resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 100);
+      return;
+    }
+
     try {
       const response = await fetch('/api/recommend', {
         method: 'POST',
@@ -58,6 +75,9 @@ export default function Home() {
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch recommendation.');
       }
+
+      // Store in client-side cache
+      recommendationCache.current[cacheKey] = data;
 
       setRecommendation(data);
       

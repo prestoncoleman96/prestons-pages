@@ -7,6 +7,9 @@ import Papa from 'papaparse';
 // Set runtime config if needed
 export const dynamic = 'force-dynamic';
 
+// Cache parsed local embeddings in memory to speed up warm-start requests
+let cachedEmbeddings = null;
+
 // Helper to strip HTML tags and clean up common entities
 function stripHtml(html) {
   if (!html) return '';
@@ -176,8 +179,11 @@ export async function POST(request) {
         if (queryEmbedding) {
           // Priority A: Search local JSON vector database (Option B)
           if (hasLocalEmbeddings) {
-            const localEmbeddings = JSON.parse(fs.readFileSync(embeddingsPath, 'utf8'));
-            const scored = localEmbeddings
+            if (!cachedEmbeddings) {
+              console.log('Loading and parsing local embeddings.json into memory cache...');
+              cachedEmbeddings = JSON.parse(fs.readFileSync(embeddingsPath, 'utf8'));
+            }
+            const scored = cachedEmbeddings
               .map(b => ({
                 book: b,
                 similarity: cosineSimilarity(queryEmbedding, b.embedding)
