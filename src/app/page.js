@@ -2,6 +2,13 @@
 
 import { useState, useRef } from 'react';
 
+const VIBE_PRESETS = [
+  { label: '🍂 Autumn Rain', vibe: 'A dark atmospheric gothic mystery to read on a rainy afternoon, with beautiful prose, secrets, and a haunting location.', books: ['The Shadow of the Wind', 'Piranesi'] },
+  { label: '🚀 Quiet Space', vibe: 'A cozy, slow-paced science fiction story focused on exploration, philosophical thoughts, and deep friendships rather than battles.', books: ['A Case of Conscience'] },
+  { label: '🕯️ Dark Academic', vibe: 'An intellectual campus story about secret societies, rare books, and dark atmospheres.', books: ['The Secret History'] },
+  { label: '🌲 Wilderness Memoirs', vibe: 'A thoughtful, peaceful nature adventure or memoir about living in isolation in the wilderness.', books: ['Walden'] }
+];
+
 export default function Home() {
   const [name, setName] = useState('');
   const [vibe, setVibe] = useState('');
@@ -10,6 +17,20 @@ export default function Home() {
   const [recommendation, setRecommendation] = useState(null);
   const [error, setError] = useState(null);
   const recommendationCache = useRef({});
+
+  const handleShare = () => {
+    if (!recommendation) return;
+    const shareText = `Preston's Pages recommended "${recommendation.title}" by ${recommendation.author} for my vibe! 📖\n\n"${recommendation.recommendedReason}"\n\nSeek your own recommendation here: ${window.location.origin}`;
+    navigator.clipboard.writeText(shareText);
+    alert('Cozy recommendation copied to clipboard!');
+  };
+
+  const handleApplyPreset = (preset) => {
+    setVibe(preset.vibe);
+    if (preset.books && preset.books.length > 0) {
+      setFavoriteBooks(preset.books);
+    }
+  };
 
   const handleAddBook = () => {
     if (favoriteBooks.length < 3) {
@@ -150,6 +171,18 @@ export default function Home() {
                 value={vibe}
                 onChange={(e) => setVibe(e.target.value)}
               />
+              <div className="vibe-presets-container">
+                {VIBE_PRESETS.map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="vibe-preset-tag"
+                    onClick={() => handleApplyPreset(preset)}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="form-group">
@@ -212,8 +245,13 @@ export default function Home() {
         <section id="recommendation-result" className="card recommendation-section-wrapper">
           {loading && (
             <div className="loading-container">
-              <div className="book-spinner"></div>
-              <p className="loading-text">Dusting off the card catalog...</p>
+              <div className="book-loader">
+                <div className="book-loader-spine"></div>
+                <div className="page"></div>
+                <div className="page"></div>
+                <div className="page"></div>
+              </div>
+              <p className="loading-text" style={{ marginTop: '1rem' }}>Dusting off the card catalog...</p>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
                 Matching your vibe with my reading list of 1,000+ books.
               </p>
@@ -250,7 +288,15 @@ export default function Home() {
               )}
               <div className="reco-details" style={{ flex: 1, minWidth: '280px' }}>
                 <div className="recommendation-header">
-                  <span className="reco-label">Your Tailored Match</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+                    <span className="reco-label" style={{ marginBottom: 0 }}>Your Tailored Match</span>
+                    {recommendation.matchPercentage && (
+                      <span className="match-badge">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="m17 5-5-3-5 3"/><path d="m7 19 5 3 5-3"/></svg>
+                        {recommendation.matchPercentage}% Vibe Match
+                      </span>
+                    )}
+                  </div>
                   <h3 className="reco-title" style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>{recommendation.title}</h3>
                   <span className="reco-author">by {recommendation.author}</span>
                 </div>
@@ -286,18 +332,26 @@ export default function Home() {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '2rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '2rem', alignItems: 'center' }}>
                   <button
                     type="button"
                     className="add-book-btn"
-                    style={{ width: 'fit-content', margin: 0, padding: '0.6rem 1.2rem', borderStyle: 'solid' }}
+                    style={{ margin: 0, padding: '0.6rem 1.2rem', borderStyle: 'solid' }}
                     onClick={resetSearch}
                   >
                     Seek another recommendation
                   </button>
-                  <div>
-                    <span className="search-mode-tag" style={{ marginTop: 0 }}>Library search engine: {recommendation.searchMode}</span>
-                  </div>
+                  <button
+                    type="button"
+                    className="share-btn"
+                    onClick={handleShare}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                    Share Recommendation
+                  </button>
+                </div>
+                <div>
+                  <span className="search-mode-tag" style={{ marginTop: '1rem' }}>Library search engine: {recommendation.searchMode}</span>
                 </div>
               </div>
             </div>

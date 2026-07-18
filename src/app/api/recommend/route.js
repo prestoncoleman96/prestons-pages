@@ -190,7 +190,10 @@ export async function POST(request) {
               }))
               .sort((a, b) => b.similarity - a.similarity);
 
-            candidates = scored.slice(0, 10).map(item => item.book);
+            candidates = scored.slice(0, 10).map(item => ({
+              ...item.book,
+              similarity: item.similarity
+            }));
             searchMode = 'Local Vector (JSON)';
           }
           // Priority B: Search Supabase pgvector if local vector file is missing
@@ -318,6 +321,22 @@ Provide your response in JSON format. Use the following keys:
       recommendationData.myReview = stripHtml(recommendationData.myReview);
     }
     
+    // Calculate match percentage based on embedding similarity (or a random high value for fallback keyword matching)
+    let matchScore = 0.82 + (Math.random() * 0.1); // fallback
+    if (filteredCandidates && filteredCandidates.length > 0) {
+      const recTitle = (recommendationData.title || '').trim().toLowerCase();
+      const matched = filteredCandidates.find(c => (c.title || c.Title || '').trim().toLowerCase() === recTitle);
+      if (matched && typeof matched.similarity === 'number') {
+        matchScore = matched.similarity;
+      }
+    }
+    // Scale similarity score (usually 0.4 to 0.9) to a cozy 75%-99% match range
+    let matchPercentage = Math.round(matchScore * 100);
+    if (matchPercentage < 75) {
+      matchPercentage = 75 + Math.round((matchPercentage / 75) * 15);
+    }
+    recommendationData.matchPercentage = Math.min(99, Math.max(75, matchPercentage));
+
     // Attach search mode meta data
     recommendationData.searchMode = searchMode;
 
@@ -334,7 +353,7 @@ Provide your response in JSON format. Use the following keys:
             recommended_title: recommendationData.title,
             recommended_author: recommendationData.author,
             recommended_reason: recommendationData.recommendedReason,
-            search_mode: searchMode,
+            search_mode: `${searchMode} (${recommendationData.matchPercentage}% Match)`,
           });
 
         if (logError) {
