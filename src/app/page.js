@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 const VIBE_PRESETS = [
   { label: '🍂 Autumn Rain', vibe: 'A dark atmospheric gothic mystery to read on a rainy afternoon, with beautiful prose, secrets, and a haunting location.', books: ['The Shadow of the Wind', 'Piranesi'] },
@@ -17,6 +17,14 @@ const SURPRISE_VIBES = [
   { vibe: 'A classic sci-fi that holds up, dealing with deep philosophical questions of morality, faith, and human connection.', books: ['A Case of Conscience'] }
 ];
 
+const PLACEHOLDER_VIBES = [
+  "e.g. A cozy sci-fi mystery to read on a rainy afternoon, with gentle philosophical elements and a focus on friendship rather than space battles.",
+  "e.g. A dark atmospheric gothic mystery set in a remote, drafty mansion during a winter snowstorm, with secrets in the walls.",
+  "e.g. A peaceful, nature-focused adventure that feels like escaping to a quiet wooden cabin in the deep pine woods.",
+  "e.g. An intellectual campus mystery set in an old library dealing with ancient manuscripts, rare books, and dark academic secrets.",
+  "e.g. A magical realism novel set in a small seaside village with folklore motifs, cozy local characters, and gorgeous poetic prose."
+];
+
 export default function Home() {
   const [name, setName] = useState('');
   const [vibe, setVibe] = useState('');
@@ -24,7 +32,15 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [recommendation, setRecommendation] = useState(null);
   const [error, setError] = useState(null);
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const recommendationCache = useRef({});
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPlaceholderIdx(prev => (prev + 1) % PLACEHOLDER_VIBES.length);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleShare = () => {
     if (!recommendation) return;
@@ -180,7 +196,7 @@ export default function Home() {
               <textarea
                 id="vibe-input"
                 className="input-field"
-                placeholder="e.g. A cozy sci-fi mystery to read on a rainy afternoon, with gentle philosophical elements and an focus on friendship rather than galactic war."
+                placeholder={PLACEHOLDER_VIBES[placeholderIdx]}
                 required
                 value={vibe}
                 onChange={(e) => setVibe(e.target.value)}
